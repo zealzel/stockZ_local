@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 
 import urllib2
+import os
 
 class stock():
     def __init__(self,id,name):
