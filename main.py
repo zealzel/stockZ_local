@@ -3,8 +3,6 @@
 import urllib2
 import string
 
-#edit at fedoraUSB
-
 # collect the url of all stock data from web
 class urlMaker():
     '''
