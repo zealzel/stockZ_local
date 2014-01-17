@@ -3,6 +3,7 @@
 
 2. stock evalution calcuation core 
    - Excel datasheet translation 
+   - date mapping
    - series process
      - year/quarter/month process
        - arbitary range
