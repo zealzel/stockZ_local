@@ -1,0 +1,17 @@
+
+1. url list for fetching financial data on the web
+
+2. stock evalution calcuation core 
+   - Excel datasheet translation 
+   - series process
+     - year/quarter/month process
+       - arbitary range
+       - average, stdev, growthrate calculation
+   - evalution logic
+
+3. database design
+  
+4. app design
+   - gross filter evaluation on django
+   - refined single calculation on local
+
