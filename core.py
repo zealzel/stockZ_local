@@ -2,25 +2,14 @@
 from datetime import date
 from dateutil import relativedelta as rdel
 import pandas as pd
+import numpy as np
 
-y1={'year':[1993,1994,1995,1996,1997], \
-    'value':[3,1,2,4,7]}
+# test samples
+tsAll=tsy,tsq,tsm,tsd=[pd.read_csv(data) for data in ['data_Y.csv','data_Q.csv','data_M.csv','data_D.csv']]
+valAll=valY,valQ,valM,valD=[t['value'].tolist() for t in tsAll]
 
-y2={'year':[1994,1993,1995,1996,1997], \
-    'value':[1,3,2,4,7]}
-
-
-def dateDiff(d1,d2,type):
-    delta=rdel.relativedelta(d1,d2)
-    if type=='y':
-        diff=delta.years
-    elif type=='q':
-        diff=delta.years*4+delta.months/4
-    elif type=='m':
-        diff=delta.years*12+delta.months
-    else:
-        diff=delta.years*365+delta.days
-    return diff
+tsY,tsQ,tsM,tsD=[pd.DataFrame(v,index=pd.PeriodIndex(t['date'],freq=f),columns=['value']) \
+                 for v,t,f in [(valY,tsy,'Y'),(valQ,tsq,'Q'),(valM,tsm,'M'),(valD,tsd,'D')]]
 
 class timeseries():
 # time series processor
@@ -31,34 +20,38 @@ class timeseries():
         self.df=df
 
     def getSorted(self):
-        df_sorted=self.df.sort(['y','q','m','d'],ascending=[True]*4)
+        df_sorted=self.df.sort()
         return df_sorted
     
-    def getTimeSeries(self,datetype):
+    def getTimeSeries(self,datetype): # datetype: one of ['Y','Q','M','D']
+        '''
+        return the DataFrame which is sorted and with periodindex filled in fixed range
+        '''
         df_sorted=self.getSorted()
+        period_years=3
+        periods=dict(zip(['Y','Q','M','D'], \
+                         [period_years,4*period_years,12*period_years,365*period_years]))
         
-        df_sorted['index']=range(1,len(df_sorted)+1)
+        last_period=df_sorted.index[-1]
+        first_period=last_period-periods[datetype]+1
         
-        if datetype=='y':
-            pass
-        elif datetype=='q':
-            pass
-        elif datetype=='m':
-            d1=df_sorted.iat[0,0]
-            df_time_series=3
-        else:
-            pass
-        return df_sorted
-
-class frameYear():
-    def __init__(self,yData):
-        self.data=pd.DataFrame(yData)
+        prng=pd.period_range(first_period,last_period,freq=datetype)
+        df_period=df_sorted.reindex(prng)
+        return df_period
     
-    def update(self,yData):
-        self.data=pd.DataFrame(yData)
+    def getTimeSeriesForFit(self,datetype):
+        '''
+        return the DataFrame which index ranges from 1 to N and omits the row data if value is nan
+        '''
+        df_period=self.getTimeSeries(datetype)
+        y=df_period['value'].tolist()
+        x=range(1,len(y)+1)
+        x=[x[i] for i in range(len(y)) if ~np.isnan(y[i])]
+        y=[y[i] for i in range(len(y)) if ~np.isnan(y[i])]
+        return pd.DataFrame(y,index=x,columns=['value'])
+                
+    def getMean(self):
+        return self.df.mean()['value']
 
-    def ave(self):  
-        pass
-    
-    def sort(self):
-        pass
+    def getStd(self):
+        return self.df.std()['value']

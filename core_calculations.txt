@@ -1,0 +1,49 @@
+
+# curve-fitting of timeseries data
+
+for certain timeseries data
+
+ex:
+x	y
+1	2.3
+2	3.2
+3	4.6
+4	7.6
+5	12.2
+6	13.2
+7	15.7
+8	17
+9	22
+10	24
+
+y=a1*(1+r)^(x-1) , x=1,2,3,...,N
+log(y)=log(a1)+(x-1)*log(1+r)
+
+where 	a1 is the inital value of fitted curve
+	r is the growth rate
+	(x,y) is the data point
+
+can be represeneted by matrix form Ax=b
+where 	A=[[1,x1-1],
+	   [1,x2-1],
+	   ...
+	   [1,xn-1]]    (nx2)
+	b=[y1
+	   y2
+	   ...
+	   yn]		(nx1)
+	x=[log(a1)
+	   log(y)]	(2x1)
+
+the best fit solution are
+x=(A.T*A).I*A.T*b
+
+
+
+
+
+
+
+
+
+
