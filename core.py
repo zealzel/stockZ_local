@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 from datetime import date
 from dateutil import relativedelta as rdel
 import pandas as pd
@@ -49,7 +49,18 @@ class timeseries():
         x=[x[i] for i in range(len(y)) if ~np.isnan(y[i])]
         y=[y[i] for i in range(len(y)) if ~np.isnan(y[i])]
         return pd.DataFrame(y,index=x,columns=['value'])
-                
+    
+    def calRate(self,datetype):
+        df_fit=self.getTimeSeriesForFit(datetype)
+        x=df_fit.index.tolist()
+        y=df_fit['value'].tolist()
+        A=np.matrix([[1]*len(x),np.array(x)-1]).T
+        b=np.matrix(np.log(y)).T
+        ans=(A.T*A).I*A.T*b
+        a1=np.exp(np.array(ans)[0][0])
+        r=np.exp(np.array(ans)[0][0])-1
+        return [a1,r]
+    
     def getMean(self):
         return self.df.mean()['value']
 

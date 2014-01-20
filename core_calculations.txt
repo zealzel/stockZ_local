@@ -28,22 +28,14 @@ where 	A=[[1,x1-1],
 	   [1,x2-1],
 	   ...
 	   [1,xn-1]]    (nx2)
-	b=[y1
-	   y2
+	b=[log(y1)
+	   log(y2)
 	   ...
-	   yn]		(nx1)
+	   log(yn)]	(nx1)
 	x=[log(a1)
-	   log(y)]	(2x1)
+	   log(1+r)]	(2x1)	
 
 the best fit solution are
 x=(A.T*A).I*A.T*b
-
-
-
-
-
-
-
-
 
 
