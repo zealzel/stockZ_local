@@ -17,9 +17,9 @@ tsY,tsQ,tsM,tsD=[pd.DataFrame(v,index=pd.PeriodIndex(t['date'],freq=f),columns=[
 class timeseries():
 # time series processor
     
-    def __init__(self,df):
+    def __init__(self,df,period_years=3):
         self.update(df)
-        self.period_years=3
+        self.period_years=period_years
     
     def setPeriodYears(self,pYears):
         self.period_years=pYears

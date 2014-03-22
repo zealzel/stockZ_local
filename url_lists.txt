@@ -3,6 +3,8 @@ url list for fetching financial data on the web
 
 ---------------
 Dividend 股利
+    個股股利表[年](經股東會確認)
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st09?step=1&firstin=1&YEAR=101&co_id=5508 
     匯總股利表[年]
         sii : http://mops.twse.com.tw/server-java/t05st09sub?step=1&TYPEK=sii&YEAR=102
         otc : http://mops.twse.com.tw/server-java/t05st09sub?step=1&TYPEK=otc&YEAR=102
@@ -11,43 +13,67 @@ Dividend 股利
 Income 損益表
     匯總損益表[季]
      IFRS前 [till 2012/Q4]
-     (A.1)個別損益表 
+     (1)個別損益表 
         sii : http://mops.twse.com.tw/mops/web/ajax_t51sb08?step=1&firstin=1&TYPEK=sii&year=101&season=03
         otc : http://mops.twse.com.tw/mops/web/ajax_t51sb08?step=1&firstin=1&TYPEK=otc&year=101&season=03
-     (A.2)合併損益表
+     (2)合併損益表
         sii : http://mops.twse.com.tw/mops/web/ajax_t51sb13?step=1&firstin=1&TYPEK=sii&year=101&season=03
         otc : http://mops.twse.com.tw/mops/web/ajax_t51sb13?step=1&firstin=1&TYPEK=otc&year=101&season=03
      IFRS後 [starts from 2013/Q1]
-     (A.3)合併損益表 
+     (3)合併損益表 
         sii : http://mops.twse.com.tw/mops/web/ajax_t163sb04?step=1&firstin=1&TYPEK=sii&year=102&season=01
         otc : http://mops.twse.com.tw/mops/web/ajax_t163sb04?step=1&firstin=1&TYPEK=otc&year=102&season=01
     個股損益表
+     IFRS前 [till 2012/Q4]
+     (4)個別損益表 
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st32?step=1&firstin=1&year=101&season=03        
+     (5)合併損益表        
+	sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st34?step=1&firstin=1&year=101&season=04
+     IFRS後 [starts from 2013/Q1]
+     (6)合併損益表 
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t164sb04?step=1&firstin=1&year=102&season=01
+      
 
 ---------------
 Balance 資產負債表
     匯總資產負債表[季]
      IFRS前 [till 2012/Q4]
-     (A.1)個別資產負債表
+     (1)個別資產負債表
         sii : http://mops.twse.com.tw/mops/web/ajax_t51sb07?step=1&firstin=1&TYPEK=sii&year=101&season=03
         otc : http://mops.twse.com.tw/mops/web/ajax_t51sb07?step=1&firstin=1&TYPEK=otc&year=101&season=03
-     (A.2)合併資產負債表
+     (2)合併資產負債表
         sii : http://mops.twse.com.tw/mops/web/ajax_t51sb12?step=1&firstin=1&TYPEK=sii&year=101&season=03
         otc : http://mops.twse.com.tw/mops/web/ajax_t51sb12?step=1&firstin=1&TYPEK=otc&year=101&season=03
      IFRS後 [starts from 2013/Q1]
-     (A.3)合併資產負債表 
+     (3)合併資產負債表 
         sii : http://mops.twse.com.tw/mops/web/ajax_t163sb05?step=1&firstin=1&TYPEK=sii&year=102&season=01
         otc : http://mops.twse.com.tw/mops/web/ajax_t163sb05?step=1&firstin=1&TYPEK=otc&year=102&season=01 
-    個股損益表
+    個股資產負債表
+     IFRS前 [till 2012/Q4]
+     (4)個別資產負債表 
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st31?step=1&firstin=1&year=101&season=03        
+     (5)合併資產負債表        
+	sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st33?step=1&firstin=1&year=101&season=04
+     IFRS後 [starts from 2013/Q1]
+     (6)合併資產負債表
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t164sb03?step=1&firstin=1&year=102&season=01
+
 
 ---------------
 Sale 銷售 
     匯總銷售表[月] [90/6~]
         sii : http://mops.twse.com.tw/t21/sii/t21sc03_102_12.html
         otc : http://mops.twse.com.tw/t21/otc/t21sc03_102_12.html 
+    個股銷售表[月]
+     IFRS前 [till 2012/Q4]        
+	sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st33?step=1&firstin=1&year=101&season=04
+     IFRS後 [starts from 2013/Q1]
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t164sb03?step=1&firstin=1&year=102&season=01
 
+       
 ---------------
 Cash 現金流量表
-    匯總現金流量表[季]
+    個股現金流量表[季]
      IFRS前 [till 2012/Q4]
      (A.1)個別現金流量表 
         sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st36?firstin=1&step=1&co_id=2317&year=99&season=01
@@ -55,14 +81,11 @@ Cash 現金流量表
         sii/otc : http://mops.twse.com.tw/mops/web/ajax_t05st39?firstin=1&step=1&co_id=5508&year=99&season=03
      IFRS後 [starts from 2013/Q1]
      (A.3)合併現金流量表 
-        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t164sb05?firstin=1&step=1&co_id=2317&year=102&season=01    
-    個股現金流量表
-
-
+        sii/otc : http://mops.twse.com.tw/mops/web/ajax_t164sb05?firstin=1&step=1&co_id=2317&year=102&season=01
 
 ---------------
 Price 歷史價格
-    個股價格[工作日]
+    個股價格[月]
     sii : http://www.twse.com.tw/ch/trading/exchange/STOCK_DAY_AVG/STOCK_DAY_AVG.php?STK_NO=5608&myear=2003&mmon=09
     otc : http://www.otc.org.tw/ch/stock/aftertrading/daily_trading_info/st43_result.php?d=93/01&stkno=6231
 
