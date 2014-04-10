@@ -17,7 +17,7 @@ if __name__=="__main__":
     print tss
     '''
 
-    pcs=[PcsDiv,]
+    pcs=[PcsDiv,PcsInc]
     for p in pcs:
         pp=p(id)
         print pp.getTS()
