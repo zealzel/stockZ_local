@@ -1,20 +1,10 @@
 # -*- coding: utf8 -*-
+from base import Now,ThisYear,ThisQuarter,ThisMonth
+from base import stkBase
 
-import urllib2
-import string
-import socket
-from pandas import Period
-from pandas.io.html import read_html
-from datetime import datetime
-import numpy as np
 import pdb
 
-Now=datetime.now()
-ThisYear=Now.year
-ThisMonth=Now.month
-
 class utils():
-    
     @classmethod
     def E2M(cls,year): #西元->民國
         return year-1911
@@ -23,39 +13,16 @@ class utils():
     def M2E(cls,year): #民國->西元
         return year+1911
 
-class urlopenByProxy():
-    def __init__(self,proxy="http://proxy.hinet.net:80/",Timeout=30):
-        self.opener=urllib2.build_opener(urllib2.ProxyHandler({'http':proxy}))
-        socket.setdefaulttimeout(Timeout)
- 
-    def open(self,url,TimeOut):
-        return self.opener.open(url,timeout=TimeOut)
-
-
 # collect the url of all stock data from web
 class url():
-    class Fan() : DIV, INC, BAL, SAL, CSH, PRC, PRCm, PER = range(1,9)
-    class Mkt() :
-        ALL, SII, OTC = range(3)
-        
-        @classmethod
-        def toStr(cls,key):
-            v=('all','sii','otc')
-            return v[key]
-    
-    class F(): # Flags
-        SINGLE=1 	# 個股
-        NO_IFRS=2 	# IFRS前
-        COMBINED=4 	# 合併報表
-    
     @classmethod
     def cond_to_flags(cls,stkid,beforeIFRS,isCombined):
-        S,B,C=[cls.F.SINGLE,cls.F.NO_IFRS,cls.F.COMBINED]
+        S,B,C=[stkBase.F.SINGLE,stkBase.F.NO_IFRS,stkBase.F.COMBINED]
         if stkid!=None:
             if beforeIFRS:
                 if isCombined:
                     flags=S|B|C
-                else:
+                else:   
                     flags=S|B
             elif isCombined:
                 flags=S|C
@@ -70,65 +37,23 @@ class url():
         return flags
     
     @classmethod
-    def getUrlStock(cls,stk_id):
-    # both id & name of stock can be queryed
-        url_stock='http://mops.twse.com.tw/mops/web/ajax_quickpgm?firstin=true&step=4&checkbtn=1&queryName=co_id&keyword4=%s' % (stk_id)
-        return url_stock
-    
-    @classmethod
-    def getBasic(cls,stk_id):
-        # stk_id can be either stock id or stock name
-        try:
-            res=urllib2.urlopen(cls.getUrlStock(stk_id))
-        except Exception as ex:
-            print 'error: %s' % (ex)
-            return None
-        content=res.read().decode('utf-8')
-        df=read_html(content)[1]
-        return df
-    
-    @classmethod
-    def getMkt(cls,stk_id):
-        df=cls.getBasic(stk_id)
-        try:
-            market_type=df.at[1,3]
-            if market_type==u'上市':
-                return cls.Mkt.SII
-            elif market_type==u'上櫃':
-                return cls.Mkt.OTC
-            else:
-                return cls.Mkt.ALL
-        except Exception as ex:
-            return None
-    
-    @classmethod
-    def getStockID(cls,stk_id):
-        df=cls.getBasic(stk_id)
-        return df.at[1,0]
-    
-    @classmethod
-    def getStockName(cls,stk_id):
-        df=cls.getBasic(stk_id)
-        return df.at[1,1]
-
-    @classmethod
     def get(cls,financial,period,stkid=None,beforeIFRS=False,isCombined=True,mktType=None): # stkid=None --> 財務彙整總表
         
         # <-- speed bottleneck!!
         if mktType==None:
-            m=url.getMkt(stkid)
+            m=stkBase.getMkt(stkid)
         else:
             m=mktType
         
         p,s,b,c=(period,stkid,beforeIFRS,isCombined)
-        funcmap={   cls.Fan.DIV : cls.getUrlDIVIDEND,
-                    cls.Fan.PRC : cls.getUrlPRICE,
-                    cls.Fan.PRCm : cls.getUrlPRICE_Month,
-                    cls.Fan.SAL : cls.getUrlSALE,
-                    cls.Fan.INC : cls.getUrlINCOME,
-                    cls.Fan.BAL : cls.getUrlBALANCE,
-                    cls.Fan.PER : cls.getUrlPER,
-                    cls.Fan.CSH : cls.getUrlCASH
+        funcmap={   stkBase.Fan.DIV : cls.getUrlDIVIDEND,
+                    stkBase.Fan.PRC : cls.getUrlPRICE,
+                    stkBase.Fan.PRCm : cls.getUrlPRICE_Month,
+                    stkBase.Fan.SAL : cls.getUrlSALE,
+                    stkBase.Fan.INC : cls.getUrlINCOME,
+                    stkBase.Fan.BAL : cls.getUrlBALANCE,
+                    stkBase.Fan.PER : cls.getUrlPER,
+                    stkBase.Fan.CSH : cls.getUrlCASH
                 }
         return funcmap[financial](m,p,s,b,c)
     
@@ -195,15 +120,15 @@ class url():
         y,m = [period.year, period.month]
         
         kwargs_sii={'STK_NO':stkid,'myear':y,'mmon':m}
-        kwargs_otc={'stkno':stkid,'d':"%s/%s" % (utils.E2M(y),string.zfill(m,2))}
+        kwargs_otc={'stkno':stkid,'d':"%s/%.2d" % (utils.E2M(y),m)}
         
-        date="%s%s" % (y,string.zfill(m,2))
+        date="%s%.2d" % (y,m)
         db="Report%s/%s_F3_1_8_%s.php" % (date,date,stkid)      #個股日收盤價及月平均價
         
         if stkid!=None:
-            if market==cls.Mkt.SII:
+            if market==stkBase.Mkt.SII:
                 url=cls.getUrlTWSE(3,db,**kwargs_sii)
-            elif market==cls.Mkt.OTC:
+            elif market==stkBase.Mkt.OTC:
                 url=cls.getUrlTWSE(5,'st43_result.php',**kwargs_otc)
         else:
             url=None
@@ -224,7 +149,7 @@ class url():
             db="Report%s%0.2d/%s_F3_1_10_%s.php" % (y,ThisMonth,y,stkid)
         
         if stkid!=None:
-            if market==cls.Mkt.SII:
+            if market==stkBase.Mkt.SII:
                 url=cls.getUrlTWSE(7,db,**kwargs_sii)
         else:
             # 櫃買中心無個股月成交資訊
@@ -242,9 +167,9 @@ class url():
         kwargs_otc={'stkno':stkid,'d':"%s/%s" % (utils.E2M(period.year),m)}
         
         if stkid!=None:
-            if market==cls.Mkt.SII:
+            if market==stkBase.Mkt.SII:
                 url=cls.getUrlTWSE(4,'BWIBBU.php',**kwargs_sii)
-            elif market==cls.Mkt.OTC:
+            elif market==stkBase.Mkt.OTC:
                 url=cls.getUrlTWSE(6,'pera_result.php',**kwargs_otc)
         else:
             url=None
@@ -259,27 +184,27 @@ class url():
 
         y=period.year
         kwargs_single={'step':1,'firstin':1,'co_id':stkid}
-        kwargs_whole={'step':1,'TYPEK':cls.Mkt.toStr(market),'YEAR':utils.E2M(y)}
+        kwargs_whole={'step':1,'TYPEK':stkBase.Mkt.toStr(market),'YEAR':utils.E2M(y)}
         
         if stkid!=None:
             # 個股歷年股利
             url=cls.getUrlTWSE(1,'ajax_t05st09',**kwargs_single)
         else:
             # 總股單年股利
-            if market==cls.Mkt.SII or market==cls.Mkt.OTC:
+            if market==stkBase.Mkt.SII or market==stkBase.Mkt.OTC:
                 url=cls.getUrlTWSE(2,'t05st09sub',**kwargs_whole)
         return url
         
     @classmethod
     def getUrlINCOME(cls,market,period,stkid,beforeIFRS,isCombined):
-        if period.freq!='Q-DEC' or (market!=cls.Mkt.SII and market!=cls.Mkt.OTC and market!=cls.Mkt.ALL):return None
+        if period.freq!='Q-DEC' or (market!=stkBase.Mkt.SII and market!=stkBase.Mkt.OTC and market!=stkBase.Mkt.ALL):return None
         y,q = [utils.E2M(period.year), period.quarter]
-        strMkt=cls.Mkt.toStr(market)
+        strMkt=stkBase.Mkt.toStr(market)
  
-        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':string.zfill(q,2)}
-        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':string.zfill(q,2)}
+        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':"%.2d"%(q)}
+        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':"%.2d"%(q)}
         
-       	S,B,C=[cls.F.SINGLE,cls.F.NO_IFRS,cls.F.COMBINED]
+       	S,B,C=[stkBase.F.SINGLE,stkBase.F.NO_IFRS,stkBase.F.COMBINED]
         flags=cls.cond_to_flags(stkid,beforeIFRS,isCombined)
         flagValue={ S|B|C   : cls.getUrlTWSE(1,'ajax_t05st34',**kwargs_single),
                     S|B     : cls.getUrlTWSE(1,'ajax_t05st32',**kwargs_single),
@@ -291,14 +216,14 @@ class url():
     
     @classmethod
     def getUrlBALANCE(cls,market,period,stkid,beforeIFRS,isCombined):
-        if period.freq!='Q-DEC' or (market!=cls.Mkt.SII and market!=cls.Mkt.OTC):return None
+        if period.freq!='Q-DEC' or (market!=stkBase.Mkt.SII and market!=stkBase.Mkt.OTC):return None
         y,q = [utils.E2M(period.year), period.quarter]
-        strMkt=cls.Mkt.toStr(market)
+        strMkt=stkBase.Mkt.toStr(market)
         
-        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':string.zfill(q,2)}
-        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':string.zfill(q,2)}
+        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':"%.2d"%(q)}
+        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':"%.2d"%(q)}
         
-        S,B,C=[cls.F.SINGLE,cls.F.NO_IFRS,cls.F.COMBINED]
+        S,B,C=[stkBase.F.SINGLE,stkBase.F.NO_IFRS,stkBase.F.COMBINED]
         flags=cls.cond_to_flags(stkid,beforeIFRS,isCombined)
         flagValue={ S|B|C   : cls.getUrlTWSE(1,'ajax_t05st33',**kwargs_single),
                     S|B     : cls.getUrlTWSE(1,'ajax_t05st31',**kwargs_single),
@@ -315,7 +240,7 @@ class url():
         y,m = [utils.E2M(period.year), period.month]
         kwargs_single={'step':0,'firstin':1,'co_id':stkid,'year':y,'month':m}
         
-        S,B,C=[cls.F.SINGLE,cls.F.NO_IFRS,cls.F.COMBINED]
+        S,B,C=[stkBase.F.SINGLE,stkBase.F.NO_IFRS,stkBase.F.COMBINED]
         flags=cls.cond_to_flags(stkid,beforeIFRS,isCombined)
         flagValue={ S|B|C   : cls.getUrlTWSE(1,'ajax_t05st10',**kwargs_single),
                     S|B     : None,
@@ -328,14 +253,14 @@ class url():
 
     @classmethod
     def getUrlCASH(cls,market,period,stkid,beforeIFRS,isCombined):
-        if period.freq!='Q-DEC' or (market!=cls.Mkt.SII and market!=cls.Mkt.OTC and market!=cls.Mkt.ALL):return None
+        if period.freq!='Q-DEC' or (market!=stkBase.Mkt.SII and market!=stkBase.Mkt.OTC and market!=stkBase.Mkt.ALL):return None
         y,q = [utils.E2M(period.year), period.quarter]
-        strMkt=cls.Mkt.toStr(market)
+        strMkt=stkBase.Mkt.toStr(market)
         
-        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':string.zfill(q,2)}
-        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':string.zfill(q,2)}
+        kwargs_single={'step':1,'firstin':1,'co_id':stkid,'year':y,'season':"%.2d"%(q)}
+        kwargs_whole={'step':1,'firstin':1,'TYPEK':strMkt,'year':y,'season':"%.2d"%(q)}
         
-       	S,B,C=[cls.F.SINGLE,cls.F.NO_IFRS,cls.F.COMBINED]
+       	S,B,C=[stkBase.F.SINGLE,stkBase.F.NO_IFRS,stkBase.F.COMBINED]
         flags=cls.cond_to_flags(stkid,beforeIFRS,isCombined)
         flagValue={ S|B|C   : cls.getUrlTWSE(1,'ajax_t05st39',**kwargs_single),
                     S|B     : cls.getUrlTWSE(1,'ajax_t05st36',**kwargs_single),

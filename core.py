@@ -1,13 +1,10 @@
  # -*- coding: utf-8 -*-
-from datetime import date
-from dateutil import relativedelta as rdel
-import pdb
 import collections
-import pandas as pd
-import numpy as np
 from matplotlib import pyplot as plt
-
+from scipy.optimize import leastsq
 from process import *
+
+import pdb
 
 # test samples
 files=['traindata/data_%s.csv' % s for s in ('Y','Q','M','D')]
@@ -63,32 +60,75 @@ class timeseries():
         y=[y[i] for i in range(len(y)) if ~np.isnan(y[i])]
         return pd.DataFrame(y,index=x,columns=['value'])
     
+    def func1(self):
+        f1=lambda p,x:p[0]*(1+p[1])**(x-1)
+        return f1
+    
     def calRate(self,datetype,conservative=True):
         df_fit=self.getTimeSeriesForFit(datetype)
-        x=df_fit.index.tolist()
-        y=df_fit['value'].tolist()
+        x=np.array(df_fit.index.tolist())
+        y_data=np.array(df_fit['value'].tolist())
         
         # exclude the data point which value is zero
-        xx=[x[i] for i in range(len(y)) if y[i]>0]
-        yy=[y[i] for i in range(len(y)) if y[i]>0]
-        
+        xx=[x[i] for i in range(len(y_data))]
+        yy=[y_data[i] for i in range(len(y_data))]
+ 
         A=np.matrix([[1]*len(xx),np.array(xx)-1]).T
         b=np.matrix(np.log(yy)).T
         ans=(A.T*A).I*A.T*b
         a1=np.exp(np.array(ans)[0][0])
-        r=np.exp(np.array(ans)[1][0])-1
+        rate=np.exp(np.array(ans)[1][0])-1
         
         rates_year={'Y':1,'Q':4,'M':12}
-        r*=rates_year[datetype]
+        rate*=rates_year[datetype]
         
         # if the data is not complete, then multiply by a discount ratio to the growth rate
         if conservative:
-            r*=len(xx)/float(self.getPeriods(datetype))
+            rate*=len(x)/float(self.getPeriods(datetype))
         
-        return [a1,r]
+        return [a1,rate]
+    
+    def calRateLSQ(self,datetype,conservative=True):
+        df_fit=self.getTimeSeriesForFit(datetype)
+        
+        size_total=len(df_fit)
+        size_neg=len(df_fit[df_fit.value<0])
+        
+        # 若負值過多,超過全部的1/3,則將成長率視為零
+        if size_neg>size_total/3.0:
+            return [0.0,0.0]
+        else:
+            x=np.array(df_fit.index.tolist())
+            y_data=np.array(df_fit['value'].tolist())
+            
+            residuals=lambda p,y,x:y-(p[0]*(1+p[1])**(x-1))
+            
+            p0=[1,0.10] # initial guess
+            plsq=leastsq(residuals,p0,args=(y_data,x))
+            parameters=plsq[0]
+            rate=parameters[1]
+            
+            xi=np.array(df_fit.index)
+            yi=np.array(df_fit['value'])
+            y_mean=yi.mean()
+            fi=self.func1()(parameters,xi)
+            
+            SS_tot=((yi-y_mean)**2).sum()
+            SS_res=((yi-fi)**2).sum()
+            R_sqr=1-SS_res/SS_tot
+                          
+            rates_year={'Y':1,'Q':4,'M':12}
+            rate*=rates_year[datetype]
+            
+            # if the data is not complete, then multiply by a discount ratio to the growth rate
+            if conservative:
+                rate*=len(x)/float(self.getPeriods(datetype))
+    
+        return [parameters[0],rate,R_sqr]
     
     def plotFit(self,datetype):
-        ans=self.calRate(datetype)
+        
+        ans=self.calRateLSQ(datetype,conservative=False)
         df_fit=self.getTimeSeriesForFit(datetype)
         
         x=df_fit.index.tolist()
@@ -102,22 +142,16 @@ class timeseries():
         
         plt.scatter(x,y)
         plt.plot(x_fit,y_fit)
-    
-    def getMean(self):
-        return self.df.mean()['value']
-
-    def getStd(self):
-        return self.df.std()['value']
 
 class eval():
     
-    def __init__(self,stkid,period_year=3,return_rate=0.15):
+    def __init__(self,stkid,period_year=10,return_rate=0.15):
         # --- basic
         if type(stkid)==str:
-            self.id=url.getStockID(stkid)
+            self.id=stkBase.getStockID(stkid)
         else:
             self.id=stkid
-        self.name=url.getStockName(stkid)
+        self.name=stkBase.getStockName(stkid)
         self.period_year=period_year
         self.return_rate=return_rate
         self.initProcess()
@@ -143,8 +177,8 @@ class eval():
     def updateDF(self):
 
         mY=self.period_year
-        pQ_end=Period("%sQ%s" % (ThisYear,ThisQuarter))-1
-        pM_end=Period("%s/%s" % (ThisYear,ThisMonth))-1
+        pQ_end=pd.Period("%sQ%s" % (ThisYear,ThisQuarter))-1
+        pM_end=pd.Period("%s/%s" % (ThisYear,ThisMonth))-1
         
         print "update dataframes..."
         
@@ -183,17 +217,43 @@ class eval():
         print "calculate growth rate..."
         
         # --- growth rate calculation
-        self.rateInc=self.tsInc.calRate('Q')[1]
-        self.rateBal=self.tsBal.calRate('Q')[1]
-        self.rateCsh=self.tsCsh.calRate('Q')[1]
+        varsInc=self.tsInc.calRateLSQ('Q')
+        varsBal=self.tsBal.calRateLSQ('Q')
+        varsCsh=self.tsCsh.calRateLSQ('Q')
+        varsSal=self.tsSal.calRateLSQ('M')
         
-        self.rateSal=self.tsSal.calRate('M')[1]
-        if self.rateSal<0:self.rateSal=0.0
+        # 若某個財務指標之成長率小於零,直接使之為零
+        if varsInc[0]<0 or varsInc[1]<=0:
+            self.rateInc=0.0
+        else:
+            self.rateInc=varsInc[1]
+        if varsBal[0]<0 or varsBal[1]<=0:
+            self.rateBal=0.0
+        else:
+            self.rateBal=varsBal[1]
         
+        if varsCsh[0]<0 or varsCsh[1]<=0:
+            self.rateCsh=0.0
+        else:
+            self.rateCsh=varsCsh[1]
+    
+        if varsSal[0]<0 or varsSal[1]<=0:
+            self.rateSal=0.0
+        else:
+            self.rateSal=varsSal[1]
+
         return [self.rateInc,self.rateBal,self.rateSal,self.rateCsh]
     
     def getEPSTTM(self):
-        return self.dfInc[-4:]['value'].sum()
+        # 取最近四季的EPS總和
+        epsSum=[]
+        for i in self.dfInc.index[::-1]:
+            data=self.dfInc.loc[i,'value']
+            if not np.isnan(data):
+                epsSum.append(data)
+        epsTTM=np.array(epsSum[:4]).sum()
+        #return self.dfInc[-4:]['value'].sum()
+        return epsTTM
     
     def calPriceDiv(self,return_rate=0.15):
     # -- price dividend
@@ -251,15 +311,19 @@ class eval():
         dfQ['fcf']=dfFCF
         
         epsTTM=self.getEPSTTM()
+        MOS=0.5
         
         per_mean=self.dfPer['value'].mean()
         per_std=self.dfPer['value'].std()
         perAVE=self.dfPer[abs(self.dfPer.value-per_mean)<per_std].mean().iat[0]
-        eps10Y=fv(epsTTM,growth_rate,10)
-        future_retail_value=eps10Y*perAVE
-        MOS=0.5
-        sticker_price=pv(future_retail_value,self.return_rate,10)
-        growth_price=sticker_price*MOS
+        
+        if epsTTM>0:
+            eps10Y=fv(epsTTM,growth_rate,10)
+            future_retail_value=eps10Y*perAVE
+            sticker_price=pv(future_retail_value,self.return_rate,10)
+            growth_price=sticker_price*MOS
+        else:
+            eps10Y=future_retail_value=sticker_price=growth_price=0
         
         self.lineprints(collections.OrderedDict([
                         ("eps TTM"              ,epsTTM),

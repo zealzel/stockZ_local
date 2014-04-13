@@ -1,30 +1,30 @@
 # -*- coding: utf-8 -*-
 import urllib2
-import re
 import socket
 import timeit,time
-import pdb
 import pandas as pd
-
-from urllib2 import urlopen
-from datetime import datetime
+import numpy as np
+from re import compile
 from abc import ABCMeta,abstractmethod
-from fetch import *
-
 import logging
 logging.basicConfig(level=logging.DEBUG)
 logger=logging.getLogger(__name__)
 
-Fan=url.Fan
-Mkt=url.Mkt
+from fetch import *
 
-Now=datetime.now()
-ThisYear=Now.year
-ThisQuarter=(Now.month-1)/3+1
-ThisMonth=Now.month
+import pdb
 
+Fan=stkBase.Fan
+Mkt=stkBase.Mkt
 TIMEOUT=30
 
+class urlopenByProxy():
+    def __init__(self,proxy="http://proxy.hinet.net:80/",Timeout=30):
+        self.opener=urllib2.build_opener(urllib2.ProxyHandler({'http':proxy}))
+        socket.setdefaulttimeout(Timeout)
+    
+    def open(self,url,TimeOut):
+        return self.opener.open(url,timeout=TimeOut)
 
 class Pcs():
     __metaclass__=ABCMeta
@@ -39,8 +39,8 @@ class Pcs():
     def updateStkId(self,id):
         if id!=None:
             self.id=id
-            self.market=url.getMkt(self.id)
-    
+            self.market=stkBase.getMkt(self.id)
+
     def enableProxyConnection(self,enable=True):
         self.enableproxy=enable
     
@@ -52,7 +52,7 @@ class Pcs():
                 res=self.urlProxy.open(Url,TimeOut=TIMEOUT)
             else:
                 logger.debug("---disable proxy---")
-                res=urlopen(Url,timeout=TIMEOUT)
+                res=urllib2.urlopen(Url,timeout=TIMEOUT)
     
             logger.debug(" getting contents...")
             content=res.read().decode(Decode)
@@ -81,6 +81,8 @@ class Pcs():
         '''
         pass
 
+
+
 class PcsDiv(Pcs):
     
     def __init__(self,id=None):
@@ -94,7 +96,12 @@ class PcsDiv(Pcs):
     def getDataFrame(self,content):
         df=pd.io.html.read_html(content,infer_types=False)
         df1=df[1][range(5)][3:]
-        df2=df[5][[0,1,2,7,10]][3:]
+        
+        # 兩種表格模式,有無第三種?
+        if len(df)==8: # 2317
+            df2=df[5][[0,1,2,7,10]][3:]
+        elif len(df)==4: # ex:2705
+            df2=df[3][[0,1,2,7,10]][3:]
         
         df1.columns=['Div_year','Date','Section','DivCash','DivStock']
         df2.columns=['Div_year','Date','Section','DivCash','DivStock']
@@ -113,8 +120,10 @@ class PcsDiv(Pcs):
         
         d=dfDiv[['DivCash']]
         d.columns=['value']
+        d.sort(inplace=True)
+        d=d.groupby(level=0).last()
         
-        return d.sort()
+        return d
 
 class PcsDataFrame(Pcs):
     '''
@@ -154,6 +163,12 @@ class PcsDataFrame(Pcs):
     
     def getDF(self,content,period): pass
     def arrangeDF(self,df,period): pass
+    def isValid(self,df_raw):
+        if df_raw is None or len(df_raw)<3:
+            return False
+        else:
+            return True
+
     def getDataFrame(self,content,period):
         '''
         產生單一期間之DataFrame內容
@@ -162,7 +177,7 @@ class PcsDataFrame(Pcs):
         
         # 根據單一區間和網頁內容產生dataframe物件
         df_raw=self.getDF(content,period)
-        if df_raw is None or len(df_raw)==0: return dfNone
+        if not self.isValid(df_raw): return dfNone
         
         df_processed=self.arrangeDF(df_raw,period)
         if df_processed is None: return dfNone
@@ -255,6 +270,9 @@ class PcsInc(PcsDataFrame):
             if df.at[ix,1]!='nan':
                 df_eps=df[df.index==ix][[1]].T
                 break
+            else:
+                df_eps=pd.DataFrame(None,index=[period],columns =['value'])
+                    
         df_eps.columns=['value']
         df_eps.index=[period]
         return df_eps
@@ -361,7 +379,7 @@ class PcsPrcCurrent(PcsDataFrame):
     def getNewestPrice(self):
         
         f=lambda s: s.replace(s[:-6],str(int(s[:-6])+1911))
-        period_current=Period("%s/%s" % (ThisYear,ThisMonth))
+        period_current=pd.Period("%s/%s" % (ThisYear,ThisMonth))
         
         
         try:
@@ -379,11 +397,11 @@ class PcsPrcCurrent(PcsDataFrame):
             df=self.getDF(content,period_current-1)
         
         if self.market==Mkt.SII:
-            day_period=Period(f(df.iat[-2,0]))
+            day_period=pd.Period(f(df.iat[-2,0]))
             price_current=float(df.iat[-2,1])
         elif self.market==Mkt.OTC:
             data_last=df.aaData.iat[-1,0]
-            day_period=Period(f(data_last[0]))
+            day_period=pd.Period(f(data_last[0]))
             price_current=float(data_last[6])
         price_newest=pd.DataFrame([price_current],index=[day_period],columns=['value'])
         return price_newest
@@ -422,7 +440,7 @@ class PcsPrc(PcsDataFrame):
             # -- web return content is table
             if self.isPriceDaily:
                 df=df[:-1]
-                df.index=[Period(f(s)) for s in df[0]]
+                df.index=[pd.Period(f(s)) for s in df[0]]
                 df_arr=df[[1]]
             else:
                 # monthly averaged prices
@@ -433,7 +451,7 @@ class PcsPrc(PcsDataFrame):
         elif self.market==Mkt.OTC:
             # -- web return content is json
             if self.isPriceDaily:
-                pix=[Period(f(i[0])) for i in df.aaData]
+                pix=[pd.Period(f(i[0])) for i in df.aaData]
                 price=[i[6] for i in df.aaData]
                 df_arr=pd.DataFrame(price,index=pix,columns=['value'])
             else:
@@ -479,7 +497,7 @@ class PcsPrcMonth(PcsDataFrame):
                 row=df[df.index==x]
                 y=row.iloc[0,0]
                 m=row.iloc[0,1]
-                periods.append(Period("%s/%s" % (int(y)+1911,m)))
+                periods.append(pd.Period("%s/%s" % (int(y)+1911,m)))
             df.index=periods
             df_arr=df[[4]]
             df_arr=df_arr.convert_objects(convert_numeric=True)
@@ -491,10 +509,29 @@ class PcsPrcMonth(PcsDataFrame):
             df_arr=pd.DataFrame(averaged_price,index=[period],columns=['value'])
         return df_arr
     
+    def getDataFrame(self,content,period):
+        
+        dfNone=pd.DataFrame(None,index=[period],columns=['value'])
+        
+        pr=lambda m:pd.Period('%d/%d' % (period.year,m))
+        periods_month=pd.period_range(pr(1),pr(12),freq='M')
+        
+        dfNone=pd.DataFrame(None,index=periods_month,columns=['value'])
+        
+        # 根據單一區間和網頁內容產生dataframe物件
+        df_raw=self.getDF(content,period)
+        if df_raw is None or len(df_raw)==0: return dfNone
+        
+        df_processed=self.arrangeDF(df_raw,period)
+        if df_processed is None: return dfNone
+        
+        logger.debug(df_processed)
+        return df_processed
+    
     def prepareDF_Periods(self,p_start,p_end,freq_selected,decode_selected):
         
-        pY_start=Period(p_start.year)
-        pY_end=Period(p_end.year)
+        pY_start=pd.Period(p_start.year)
+        pY_end=pd.Period(p_end.year)
 
         if p_start.year==p_end.year:
             period_range=[]
@@ -573,19 +610,22 @@ class PcsPerFast(PcsDataFrame):
         '''
         logger.info("擷取%s資料中..." % self)
         
-        pQ_start=Period('%dQ%d' % (p_start.year,p_start.quarter))-4
-        pQ_end=Period('%dQ%d' % (p_end.year,p_end.quarter))-1
+        pQ_start=pd.Period('%dQ%d' % (p_start.year,p_start.quarter))-4
+        pQ_end=pd.Period('%dQ%d' % (p_end.year,p_end.quarter))-1
         
         dfInc=self.pcsINC.getDataFramePeriods(pQ_start,pQ_end,'Q')
         dfPrcMonth=self.pcsPRCMonth.getDataFramePeriods(p_start,p_end,'M','big5')
         
         dfInc_for_calc=pd.DataFrame()
         for ix in dfPrcMonth.index:
-            q=Period("%dQ%d" % (ix.year,ix.quarter))
+            q=pd.Period("%dQ%d" % (ix.year,ix.quarter))
             epsTTM=dfInc[(dfInc.index<q)&(dfInc.index>=q-4)]['value'].sum()
             dfInc_for_calc=dfInc_for_calc.append(pd.DataFrame([epsTTM],index=[ix],columns=['value']))
 
         df_per=dfPrcMonth/dfInc_for_calc
+    
+        df_per[(df_per.value<0)|(df_per.value==np.inf)]=np.nan
+        
         logger.info("%s資料擷取完成!" % self)
         return df_per
 
@@ -677,7 +717,7 @@ class PcsCsh(PcsDataFrame):
                 m,mMatch=(0,-1)
                 while m<len(pattern):
                     
-                    regex=re.compile(pattern[m])
+                    regex=compile(pattern[m])
                     match=regex.findall(content)
                     if len(match)>0:
                         mMatch=m
@@ -696,7 +736,7 @@ class PcsCsh(PcsDataFrame):
             strTemp=content[pos1:pos1+dataLineLength]
             
             try:
-                regex=re.compile(mp1)
+                regex=compile(mp1)
                 cash[k]=regex.findall(strTemp)[0]
                 
                 if cash[k].find('(')!=-1 or cash[k].find(u'（')!=-1 or cash[k].find(')')!=-1 or cash[k].find(u'）')!=-1:
@@ -713,9 +753,9 @@ class PcsCsh(PcsDataFrame):
                 else:
                     break
         try:
-            dollor=re.compile(u'單位[：:\s　\u4e00-\u9fff]*[元]').findall(content)
+            dollor=compile(u'單位[：:\s　\u4e00-\u9fff]*[元]').findall(content)
             if len(dollor)!=0:
-                dollor=re.compile(u'[仟千]').findall(content)
+                dollor=compile(u'[仟千]').findall(content)
                 if len(dollor)==0:
                     cash=[int(round(c/1000.)) for c in cash]
         except:
